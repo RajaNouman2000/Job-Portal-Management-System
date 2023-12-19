@@ -11,6 +11,7 @@ import { User, validateUser } from "../model/user.js";
 import { emailVerification } from "../mail_verification/mail-verification.js";
 import {sendApiError,sendApiResponse} from "../helper_function/response-api.js" 
 
+
 // Load environment variables from .env file
 dotenv.config();
 
@@ -27,10 +28,7 @@ export const login = async (req, res) => {
         email: email,
       },
     });
-
-    console.log(existingUser)
     if (!existingUser) {
-      // If the email is incorrect
       return sendApiError(res, "Email or Password is Incorrect", 400);
     }
 
@@ -38,21 +36,18 @@ export const login = async (req, res) => {
     const passwordMatch = await bcrypt.compare(password, existingUser.password);
 
     if (!passwordMatch) {
-      // If the password is incorrect
-      return sendApiError(res, "Email or Password is Incorrect", 400);
+      return sendApiError(res, "Email or Password is Incorrect", 401);
     }
-    
+  // Generate a JWT token that expires in 30 minutes
+  const token = jwt.sign({ userId: existingUser.id }, SECRETKEY, { expiresIn: '30m' });
 
-    // Generate a JWT token
-    const token = jwt.sign({ userId: existingUser.id }, SECRETKEY, { expiresIn: '1h' });
-
-    // Include the token in the response
-    sendApiResponse(res, { existingUser,token }, "Login successfully");
+  sendApiResponse(res, { existingUser,token }, "Login successfully");
 
   } catch (error) {
-    sendApiError(res, error, 500, "Custom error message");
+    sendApiError(res, error, 500, "Internal Server Error: Unable to process the request. Please try again later.");
   }
 };
+
 
 export const getUser = async (req, res) => {
   try {
@@ -100,7 +95,7 @@ export const getUser = async (req, res) => {
     const prevPage = pageNumber > 1 ? parseInt(pageNumber) - 1 : null;
 
     // Send the paginated list of users along with pagination details as a response
-    sendApiResponse(res, { message: { data: { totalPages, perPage, pageNumber, nextPage, prevPage, users } } });
+    sendApiResponse(res, { message: { data: { totalPages, perPage, pageNumber, nextPage, prevPage, users } } }, "Paginated users fetched successfully", 200);
 
   } catch (error) {
     console.error("Error fetching paginated users:", error);
@@ -139,7 +134,15 @@ export const createUser = async (req, res) => {
     emailVerification.add({
       to: email,
       subject: "Email Verification",
-      html: `<html><p>Click the following button to verify your email</p><button><a href="http://${HOST}:${PORT}/verify?token=${rememberToken}&email=${email}">Verify</a></button></html>`,
+      html:`<div style="background-color: #F4F4F4; padding: 20px;">
+      <h2 style="color: #333;">Verify your Email.</h2>
+      <p style="color: #666;">Please tap the button below to verify you eamil:</p>
+      <a href="http://${HOST}:${PORT}/user/verify?token=${rememberToken}&email=${email}" style="text-decoration: none;">
+          <div style="background-color: #3498DB; color: white; padding: 10px 20px; border-radius: 5px; display: inline-block;">
+              Set Password
+          </div>
+      </a></div>`,
+    // html: `<html><p>Click the following button to verify your email</p><button><a href="http://${HOST}:${PORT}/user/verify?token=${rememberToken}&email=${email}">Verify</a></button></html>`,
       type: "emailVerification",
     });
 
@@ -181,7 +184,7 @@ export const verifyEmail = async (req, res) => {
     return sendApiResponse(res, { message: "Email verified successfully. Now you are redirecting to set password page.",email:email, redirectUrl });
 
   } catch (error) {
-    sendApiError(res, error, 500, "Custom error message");
+    sendApiError(res, error, 500, "Internal server error");
   }
 };
 
@@ -227,15 +230,13 @@ export const handleSetPassword = async (req, res) => {
     return sendApiResponse(res, { message: "Password set successfully. Your account is now verified. You can log in." });
     }
     else{
-      return sendApiError(res, error, 500, "Custom error message");
+      return sendApiError(res, error, 400, "Email not found");
 
     }
-    
-
-
+  
   } catch (error) {
     // Send an error response
-    return sendApiError(res, error, 500, "Custom error message");
+    return sendApiError(res, error, 500, "Internal Server Error");
   }
 };
 
@@ -257,7 +258,15 @@ export const forgetPassword = async (req, res) => {
     emailVerification.add({
       to: email,
       subject: "Email Verification",
-      html: `<html><p>Click the following button to change the Password</p><button><a href="http://192.168.11.218:8080/#/CreatePassword?email=${email}">Verify</a></button></html>`,
+      html:`<div style="background-color: #F4F4F4; padding: 20px;">
+      <h2 style="color: #333;">Set your Account Password.</h2>
+      <p style="color: #666;">Please tap the button below to set  your account password:</p>
+      <a href="http://192.168.11.218:8080/#/CreatePassword?email=${email}" style="text-decoration: none;">
+          <div style="background-color: #3498DB; color: white; padding: 10px 20px; border-radius: 5px; display: inline-block;">
+              Set Password
+          </div>
+      </a></div>`,
+      // html: `<html><p>Click the following button to change the Password</p><button><a href="http://192.168.11.218:8080/#/CreatePassword?email=${email}">Verify</a></button></html>`,
       type: "emailVerification",
     });
 
@@ -266,11 +275,9 @@ export const forgetPassword = async (req, res) => {
 
   } catch (error) {
     // Send an error response
-    return sendApiError(res, error, 500, "Error send mail");
+    return sendApiError(res, error, 500, "Internal Server error");
   }
 };
 
 
-
-
-export default { createUser, verifyEmail,handleSetPassword ,forgetPassword};
+export default { createUser, verifyEmail,handleSetPassword ,forgetPassword, getUser};

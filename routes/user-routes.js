@@ -10,16 +10,18 @@ import {
   from "../controller/user.js";
 
 import { requiredAuth} from "../middleware/auth.js"
+import {checkUser} from "../middleware/check-user.js"
+import {logRequest } from "../middleware/logs.js"
   
 export const userRouter = express.Router();
 
-userRouter.post("/login", login);
-userRouter.post("/createuser",requiredAuth,createUser)
-userRouter.get("/verify", verifyEmail);
-userRouter.get("/getusers", getUser);
+userRouter.post("/login",logRequest ,login);
+userRouter.post("/create-user",requiredAuth,checkUser,logRequest ,createUser)
+userRouter.get("/verify",logRequest , verifyEmail);
+userRouter.get("/get-users", checkUser,logRequest , getUser);
 
-userRouter.post("/setpassword", handleSetPassword);
-userRouter.post("/forgetpassword", forgetPassword);
+userRouter.patch("/set-password",logRequest , handleSetPassword);
+userRouter.patch("/forget-password",logRequest , forgetPassword);
 
 
 export default {userRouter};

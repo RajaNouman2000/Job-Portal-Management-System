@@ -13,7 +13,7 @@ export const Job = sequelize.define(
       },
       email: {
         type: DataTypes.STRING,
-        
+        unique:true,
         allowNull: false,
       },
       age: {
@@ -40,8 +40,13 @@ export const Job = sequelize.define(
         type: DataTypes.ENUM('pending', 'accepted', 'rejected'),
         defaultValue: 'pending',
       },
+    },
+    {
+        paranoid: true, // Enable soft delete
     }
   );
+
+  
 export function validateJob(job) {
     const schema = Joi.object({
       userName: Joi.string().min(5).max(30).required(),

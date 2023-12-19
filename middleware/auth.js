@@ -13,6 +13,7 @@ export const requiredAuth = async (req, res, next) => {
   try {
     // Get the token from the Authorization header
     const token = req.headers.authorization;
+    //const token=req.headers.token
 
     if (token) {
       // Verify the token
