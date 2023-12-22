@@ -34,18 +34,22 @@ export const User = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue:false,
     },
+    verificationTokenCreated:{
+      type:DataTypes.DATE,
+    }
 
   },
 );
 
 
-
 export function validateUser(user){
   const schema =Joi.object({
-      firstName: Joi.string().min(1).max(30).required(),
-      lastName: Joi.string().min(1).max(30).required(),
+      firstName: Joi.string().min(3).max(30).required(),
+      lastName: Joi.string().min(3).max(30).required(),
       email: Joi.string().required().email(),
       password: Joi.string().min(8).max(30),
+      isAdmin: Joi.boolean(), 
+    isVerified: Joi.boolean(),
   });
   return schema.validate(user);
   }

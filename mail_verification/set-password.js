@@ -1,15 +1,15 @@
-import Queue from "bull";
+import Queue from "bull"
 import { transport } from "./mail-config.js";
 
 
-export const emailVerification = new Queue("email", {
+export const  setPasswordMail = new Queue("setpassword", {
   limiter: {
     max: 10,
     duration: 1000,
   },
 });
 
-emailVerification.process(async (job) => {
+setPasswordMail.process(async (job) => {
   const { to, subject, html } = job.data;
   let _id = job.id;
   const mailOptions = {
@@ -30,4 +30,4 @@ emailVerification.process(async (job) => {
   }
 });
 
-export default { emailVerification };
+export default { setPasswordMail};

@@ -5,7 +5,7 @@ import {sequelize} from "./config.js";
 
 
 export const Job = sequelize.define(
-    "job", 
+    "applicant", 
     {
       userName: {
         type: DataTypes.STRING,
@@ -18,10 +18,10 @@ export const Job = sequelize.define(
       },
       age: {
         type: DataTypes.INTEGER, 
-        min: 0,
+        min: 18,
       },
       cnic: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       qualification: {
@@ -32,9 +32,11 @@ export const Job = sequelize.define(
       },
       phoneNumber: {
         type: DataTypes.STRING,
+        allowNull: false,
       },
       cv: {
         type: DataTypes.STRING,
+        allowNull: false,
       },
       status: {
         type: DataTypes.ENUM('pending', 'accepted', 'rejected'),
@@ -49,15 +51,18 @@ export const Job = sequelize.define(
   
 export function validateJob(job) {
     const schema = Joi.object({
-      userName: Joi.string().min(5).max(30).required(),
+      userName: Joi.string().min(3).max(30).required(),
       email: Joi.string().required().email(),
-      age: Joi.number().integer().min(0),
-      cnic: Joi.string(),
+      age: Joi.number().integer().min(18).max(100),
+      cnic: Joi.number().integer().min(1000000000000).max(9999999999999).required(),
       qualification: Joi.string().allow(''),
-      address: Joi.string().min(1).max(30).required(),
-      phoneNumber: Joi.string(),
-      cv:Joi.string(),
-      status: Joi.string().valid('pending', 'accepted', 'rejected'),
+      address: Joi.string().min(5).max(50).required(),
+      phoneNumber: Joi.string()
+      .length(13)
+      .pattern(/^[+-]\d+$/) // Allows only + or - at the beginning and then numeric characters
+      .required(),
+      cv: Joi.string().required(),
+      status: Joi.string().valid('pending', 'accepted', 'rejected').default('pending'),
     });
   
     return schema.validate(job);

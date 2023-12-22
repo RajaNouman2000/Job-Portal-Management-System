@@ -6,16 +6,20 @@ import dotenv from "dotenv";
 import  {Server} from "socket.io"
 import http from "http"
 import { userRouter } from "./routes/user-routes.js";
-import {jobRouter} from "./routes/job-routes.js"
+import {jobRouter} from "./routes/applicant-routes.js"
 import {activityRouter} from "./routes/activity-routes.js"
-import {softdelete} from "./controller/job.js"
+import {softdelete} from "./controller/applicants.js"
 // import { initializeSocket } from "./web-scokets/scoket.js";
 import { makeRequest } from "./web-scokets/chatgpt.js";
+import activityLog  from "./middleware/activity-log.js"
 import  {ChatData} from  "./model/chat.js"
+import {createAdminUser} from  "./seeder/seed.js"
+import user, { User } from "./model/user.js";
+import jwt from "jsonwebtoken";
 
 
 
-import {checkUser} from "./middleware/check-user.js"
+
 // Load environment variables from .env file
 dotenv.config();
 
@@ -45,10 +49,10 @@ const limiter = rateLimit({
 
 // global rate limiter middlware for all routes
 app.use(limiter);
-
-app.use("/user",userRouter);
-app.use("/admin",activityRouter);
-app.use("/job",jobRouter);
+app.use(activityLog)
+app.use("/api/",userRouter);
+app.use("/api/log/",activityRouter);
+app.use("/api/applicant",jobRouter);
 
 
 cron.schedule("*/30 * * * *", async () => {
@@ -61,34 +65,75 @@ cron.schedule("*/30 * * * *", async () => {
   }
 });
 
+const SECRETKEY = process.env.SECRETKEY;
+// Middleware function for Socket.IO
+// Middleware function for Socket.IO
+io.use(async (socket, next) => {
+  try {
+    console.log(socket.handshake.query.token);
+    const token = socket.handshake.query.token;
 
-io.on('connection', (socket) => {
-  console.log("A user connected");
+    // Verify the token
+    const decodedToken = jwt.verify(token, SECRETKEY);
 
-  let user="user"
-  socket.on('chat message', async (msg) => {
-    console.log('message received from client: ' + msg);
+    // Check if the user exists
+    const user = await User.findOne({
+      where: {
+        id: decodedToken.userId,
+      },
+    });
 
-    try {
-      // Send user's message to OpenAI GPT-3.5 Turbo
-      const gptResponse = await makeRequest({ body: { question: msg } });
-
-      // Save GPT response to the database
-      await ChatData.create({ userName: user+1, question: msg ,response:gptResponse});
-
-      // Emit the GPT response back to the specific client
-      socket.emit('chat message', gptResponse);
-    } catch (error) {
-      console.error('Error saving message to database:', error);
-      // Handle the error (e.g., emit an error message to the client)
+    // If user doesn't exist, send an error
+    if (!user) {
+      return next(new Error('Invalid token'));
     }
-  });
 
-  // Disconnect event handler
-  socket.on('disconnect', () => {
-    console.log('A user disconnected');
-    // Additional disconnect logic if needed
-  });
+    // Attach the user to the socket object
+    socket.user = user;
+    next();
+  } catch (error) {
+    console.error('Error in Socket.IO middleware:', error);
+    next(error);
+  }
+});
+
+
+io.on('connection', async (socket) => {
+  try {
+    // Access the user from the socket object
+    const user = socket.user;
+
+    console.log(`User ${user.firstName} ${user.lastName} connected`);
+
+    socket.on('chat message', async (msg) => {
+      console.log(`Message received from  ${user.firstName} ${user.lastName}: ${msg}`);
+    
+      try {
+        // Send user's message to OpenAI GPT-3.5 Turbo
+        const gptResponse = await makeRequest({ body: { question: msg } });
+
+        // Save GPT response to the database
+        await ChatData.create({ userName: user.firstName + user.lastName, question: msg, response: gptResponse });
+
+        // Emit the GPT response back to the specific client
+        socket.emit('chat message', {
+          message: gptResponse,
+          user: "bot"
+        });
+      } catch (error) {
+        console.error('Error saving message to the database:', error);
+        // Handle the error (e.g., emit an error message to the client)
+      }
+    });
+
+    // Disconnect event handler
+    socket.on('disconnect', () => {
+      console.log(`User ${user.firstName} ${user.lastName} disconnected`);
+      // Additional disconnect logic if needed
+    });
+  } catch (error) {
+    console.error('Error in socket connection:', error);
+  }
 });
 
 server.listen(PORT, HOST, () => {

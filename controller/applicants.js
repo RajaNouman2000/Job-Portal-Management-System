@@ -2,39 +2,25 @@ import { v4 } from 'uuid';
 import fs from "fs";
 import Joi from 'joi';
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import job, { Job, validateJob } from "../model/job.js";
+import job, { Job, validateJob } from "../model/applicant.js";
 import pkg from 'sequelize';
 const { DataTypes, Sequelize ,Op} = pkg;
-import { emailVerification } from "../mail_verification/mail-verification.js";
+import { rejected  } from "../mail_verification/mail-job.js";
 import {sendApiError,sendApiResponse} from "../helper_function/response-api.js" 
+import { query } from 'express';
 
 export const createJob = async (req, res) => {
   try {
+    const { userName, email, age, cnic, qualification, address, phoneNumber, status } = req.body;
+
     const file = req.files['cv'];
     if (!file || file.length === 0) {
       // 'cv' file is not present, handle this case (e.g., send an error response)
-      sendApiError(res, "CV file is missing", 400);
+      sendApiError(res, "CV file is missing",req.logEntry.logId, 400);
       return;
     }
 
-    const pdfPath = `cvs/${req.body.email}.pdf`;
-
-    try {
-      fs.writeFileSync(pdfPath, file[0].buffer);
-    } catch (error) {
-      // Handle the error (e.g., send an error response)
-      sendApiError(res, "Error saving CV file", 500, error.message);
-      return;
-    }
-
-    const { userName, email, age, cnic, qualification, address, phoneNumber, status } = req.body;
-
-    // Check if a job application with the given email already exists
-    const existingJob = await Job.findOne({ where: { email } });
-    if (existingJob) {
-      sendApiError(res, "A job application with this email already exists", 409);
-      return;
-    }
+    const pdfPath = `cvs/${email}.pdf`;
 
     // Validate user input
     const { error } = validateJob({
@@ -49,10 +35,16 @@ export const createJob = async (req, res) => {
       status,
     });
     if (error) {
-      sendApiError(res, error.details[0].message, 400);
+      sendApiError(res, error.details[0].message,req.logEntry.logId, 400);
       return;
     }
 
+    // Check if a job application with the given email already exists
+    const existingJob = await Job.findOne({ where: { email } });
+    if (existingJob) {
+      sendApiError(res, "A job application with this email already exists", req.logEntry.logId,409);
+      return;
+    }
     const result = await Job.create({
       userName,
       email,
@@ -64,13 +56,21 @@ export const createJob = async (req, res) => {
       cv: pdfPath,
       status,
     });
+      
+    
+    try {
+      fs.writeFileSync(pdfPath, file[0].buffer);
+    } catch (error) {
+      sendApiError(res, error.message,req.logEntry.logId);
+      return;
+    }
 
-    sendApiResponse(res, result, "Job Created Successfully", 201);
+
+    sendApiResponse(res, req.logEntry.logId, "Job Created Successfully", 201);
   } catch (error) {
-    sendApiError(res, error, 500, "Custom error message");
+    return sendApiError(res, error.message,req.logEntry.logId);
   }
 };
-
 
 export const updateJobStatus = async (req, res) => {
   try {
@@ -85,7 +85,7 @@ export const updateJobStatus = async (req, res) => {
 
     if (error) {
       // Validation failed, send an error response
-      sendApiError(res, error.details[0].message, 400);
+      sendApiError(res, error.details[0].message,  req.logEntry.logId,400);
       return;
     }
 
@@ -97,7 +97,7 @@ export const updateJobStatus = async (req, res) => {
     });
 
     if (!existingJob) {
-      sendApiError(res, "Job not found for the provided email", 404);
+      sendApiError(res, "Job not found for the provided email", req.logEntry.logId, 404);
       return;
     }
 
@@ -181,38 +181,56 @@ const emailHtml = `
 
 `;
 
-    emailVerification.add({
+rejected.add({
       to: email,
       subject: "Email Verification",
       html: emailHtml,
       type: "emailVerification",
     });
 
-    sendApiResponse(res, result, "Job updated successfully", 200);
+    sendApiResponse(res, req.logEntry.logId, "Job updated successfully");
   } catch (error) {
-    sendApiError(res, error, 500, "Failed to update job. Please try again later.");
+    return sendApiError(res, error.message, req.logEntry.logId);
   }
 };
 
-
-export async function softdelete() {
+export const softdelete = async () => {
   try {
+    // Find job applications with status 'rejected'
+    const rejectedJobs = await Job.findAll({
+      where: {
+        status: 'rejected'
+      }
+    });
+
+    // Remove CV files and destroy job applications
+    for (const job of rejectedJobs) {
+      const pdfPath = `/home/raja/Express/Project#1/cvs/${job.email}.pdf`;
+
+      // Check if the CV file exists before attempting to delete
+      if (fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+      }
+    }
+
+    // Soft delete the job applications
     const result = await Job.destroy({
       where: {
         status: 'rejected'
       }
     });
-return "Soft Delete Done successfully"
-   
+
+    return "Soft Delete Done successfully";
   } catch (error) {
-   return error
+    return error;
   }
 };
 
 export const getJob = async (req, res) => {
   try {
-    const { pageNumber = 1, perPage = 10, status, userName, email, age } = req.query;
+    const { pageNumber = 1, perPage = 10, status, userName, email } = req.query;
 
+    console.log(req.query)
     // Calculate the skip value based on the page number
     const skip = (pageNumber - 1) * perPage;
 
@@ -226,9 +244,6 @@ export const getJob = async (req, res) => {
     }
     if (email) {
       filter.email = { [Op.like]: `%${email}%` };
-    }
-    if (age) {
-      filter.age = { [Op.eq]: parseInt(age) }; // Assuming age is an integer
     }
 
     // Fetch total count for pagination with applied filters
@@ -252,11 +267,11 @@ export const getJob = async (req, res) => {
     const prevPage = pageNumber > 1 ? parseInt(pageNumber) - 1 : null;
 
     // Send the paginated list of jobs along with pagination details as a response
-    sendApiResponse(res, { data: { totalPages, perPage, pageNumber, nextPage, prevPage, jobs } }, "Jobs fetched successfully", 200);
+    sendApiResponse(res, {logid: req.logEntry.logId, totalPages, perPage, pageNumber, nextPage, prevPage, jobs } , "Jobs fetched successfully", 200);
 
 
   } catch (error) {
-    sendApiError(res, error, 500, "Failed to fetch paginated jobs. Please try again later.");
+    return sendApiError(res, error.message,  req.logEntry.logId);
 
   }
 };
@@ -264,6 +279,7 @@ export const getJob = async (req, res) => {
 export const downloadCv = async (req, res) => {
   try {
     const { email } = req.body;
+    console.log(email)
 
     // Fetch records from the database using the provided email
     const user = await Job.findOne({
@@ -274,13 +290,12 @@ export const downloadCv = async (req, res) => {
 
     // Check if a user with the provided email exists
     if (!user) {
-      sendApiError(res, "User not found with the provided email", 404);
+      sendApiError(res, "User not found with the provided email", req.logEntry.logId, 404);
       return;
     }
 
     // Read the CV file associated with the user's email
-    const pdfPath = `cvs/${user.email}.pdf`;
-    const cvBuffer = fs.readFileSync(pdfPath);
+    const pdfPath = `/home/raja/Express/Project#1/cvs/${user.email}.pdf`;
 
     // Set the response headers for file download
     res.setHeader("Content-Type", "application/pdf");
@@ -290,7 +305,7 @@ export const downloadCv = async (req, res) => {
     res.sendFile(pdfPath);
   } catch (error) {
     console.error("Error downloading CV:", error);
-    sendApiError(res, error, 500, "Failed to download CV. Please try again later.");
+    return sendApiError(res, error.message,  req.logEntry.logId);
   }
 };
 

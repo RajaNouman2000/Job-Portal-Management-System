@@ -5,23 +5,26 @@ import {
     handleSetPassword,
     getUser,
     login,
-    forgetPassword
+    forgetPassword,
+    changePassword,
+    remainderEmail
   }
   from "../controller/user.js";
 
-import { requiredAuth} from "../middleware/auth.js"
-import {checkUser} from "../middleware/check-user.js"
-import {logRequest } from "../middleware/logs.js"
+import { adminAutherization} from "../middleware/admin-autherization.js"
+import { activityLog } from "../middleware/activity-log.js"
+import {userAutherization} from "../middleware/user-autherization.js"
   
 export const userRouter = express.Router();
 
-userRouter.post("/login",logRequest ,login);
-userRouter.post("/create-user",requiredAuth,checkUser,logRequest ,createUser)
-userRouter.get("/verify",logRequest , verifyEmail);
-userRouter.get("/get-users", checkUser,logRequest , getUser);
-
-userRouter.patch("/set-password",logRequest , handleSetPassword);
-userRouter.patch("/forget-password",logRequest , forgetPassword);
+userRouter.post("/auth/login" ,login);
+userRouter.post("/auth/create-user", adminAutherization,createUser)
+userRouter.get("/auth/verify-user", verifyEmail);
+userRouter.get("/user/get-users",userAutherization, getUser);
+userRouter.patch("/auth/set-password", handleSetPassword);
+userRouter.patch("/auth/change-password", changePassword);
+userRouter.patch("/auth/forget-password" , forgetPassword);
+userRouter.get("/auth/reminder-email", userAutherization,remainderEmail);
 
 
 export default {userRouter};

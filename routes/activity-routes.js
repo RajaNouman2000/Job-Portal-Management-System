@@ -4,13 +4,12 @@ import {
   }
   from "../controller/activity-logs.js";
 
-import { requiredAuth} from "../middleware/auth.js"
-import {checkUser} from "../middleware/check-user.js"
-import {logRequest } from "../middleware/logs.js"
-  
+import { adminAutherization} from "../middleware/admin-autherization.js"
+
+
 export const activityRouter = express.Router();
 
-activityRouter.get("/activity-logs",requiredAuth,checkUser,logRequest ,getActivityLogs);
+activityRouter.get("/activity-logs",adminAutherization ,getActivityLogs);
 
 
 export default {activityRouter};

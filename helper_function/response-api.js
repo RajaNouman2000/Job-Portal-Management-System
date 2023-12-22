@@ -1,5 +1,5 @@
 
-export const sendApiResponse = (res, data, message = "Success", statusCode = 200) => {
+export const sendApiResponse = (res, data, message , statusCode = 200) => {
     const responseData = {
         success: true,
         statusCode,
@@ -20,23 +20,18 @@ export const sendApiResponse = (res, data, message = "Success", statusCode = 200
 
 export  const sendApiError = (
     res,
-    error,
-    statusCode = 500,
-    defaultMessage = "Internal Server Error"
+    message= "Internal Server Error",
+    logid,
+    statusCode=500
   ) => {
-    let errorMessage = defaultMessage;
-  
-    if (typeof error === "string") {
-      errorMessage = error || defaultMessage;
-    } else if (error instanceof Error) {
-      console.error(error.stack);
-      errorMessage = error.message || defaultMessage;
-    }
-  
+   
+
     res.status(statusCode).json({
       success: false,
-      statusCode,
-      message: errorMessage,
+      statusCode:statusCode,
+      logid:logid,
+      message: message,
+     
     });
   };
 

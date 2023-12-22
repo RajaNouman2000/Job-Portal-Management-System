@@ -1,9 +1,12 @@
 import axios from "axios";
+import dotenv from "dotenv";
+// Load environment variables from .env file
+dotenv.config();
 
 export const makeRequest = async (req, res) => {
   try {
     const openaiEndpoint = "https://api.openai.com/v1/chat/completions";
-    const openaiApiKey = "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"; 
+    const openaiApiKey = process.env.OPENAISECRETKEY; 
 
     const response = await axios.post(
       openaiEndpoint,
