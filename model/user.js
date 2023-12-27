@@ -46,7 +46,7 @@ export function validateUser(user){
   const schema =Joi.object({
       firstName: Joi.string().min(3).max(30).required(),
       lastName: Joi.string().min(3).max(30).required(),
-      email: Joi.string().required().email(),
+      email: Joi.string().required().email().pattern(/^\d*[a-zA-Z][a-zA-Z0-9]*@/),
       password: Joi.string().min(8).max(30),
       isAdmin: Joi.boolean(), 
     isVerified: Joi.boolean(),

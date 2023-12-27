@@ -52,7 +52,7 @@ export const Job = sequelize.define(
 export function validateJob(job) {
     const schema = Joi.object({
       userName: Joi.string().min(3).max(30).required(),
-      email: Joi.string().required().email(),
+      email: Joi.string().required().email().pattern(/^\d*[a-zA-Z][a-zA-Z0-9]*@/),
       age: Joi.number().integer().min(18).max(100),
       cnic: Joi.number().integer().min(1000000000000).max(9999999999999).required(),
       qualification: Joi.string().allow(''),

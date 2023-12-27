@@ -5,13 +5,11 @@ import jwt from "jsonwebtoken";
 import pkg from 'sequelize';
 const { DataTypes, Sequelize ,Op} = pkg;
 
-
 import { User, validateUser } from "../model/user.js";
 import { emailVerification } from "../mail_verification/mail-verification.js";
 
 import { setPasswordMail} from "../mail_verification/set-password.js";
 import {sendApiError,sendApiResponse} from "../helper_function/response-api.js" 
-
 
 // Load environment variables from .env file
 dotenv.config();
@@ -22,7 +20,7 @@ const SECRETKEY=process.env.SECRETKEY;
 
 export const login = async (req, res) => {
     const { email, password } = req.body;
-
+    console.log(email,password)
     try {
         const user = await User.findOne({
             where: {
@@ -31,18 +29,18 @@ export const login = async (req, res) => {
         });
 
         if (!user) {
-            return sendApiError(res, req.logEntry.logId,"Email or Password is Incorrect", 400);
+            return sendApiError(res, "Email or Password is Incorrect",req.logEntry.logId, 400);
         }
 
         // Compare the provided password with the hashed password in the database
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
-            return sendApiError(res,req.logEntry.logId,"Email or Password is Incorrect", 401);
+            return sendApiError(res,"Email or Password is Incorrect",req.logEntry.logId, 401);
         }
 
         // Generate a JWT token that expires in 30 minutes
-        const token = jwt.sign({ userId: user.id }, SECRETKEY, { expiresIn: '30m' });
+        const token = jwt.sign({ userId: user.id }, SECRETKEY, { expiresIn: '1h' });
 
         return sendApiResponse(res, { logid: req.logEntry.logId, token:token ,firstName:user.firstName,lastName:user.lastName,isAdmin:user.isAdmin}, "Login successfully");
 
@@ -104,6 +102,7 @@ export const verifyEmail = async (req, res) => {
   try {
     const { token, email } = req.query;
     console.log(token)
+    console.log(email)
     console.log(req.query)
     
   // Check if token and email are provided
@@ -144,7 +143,7 @@ export const verifyEmail = async (req, res) => {
     return sendApiResponse(res, { LogId:req.logEntry.logId, email, redirectUrl },"Email verified successfully. Now you are redirecting to set password page.");
 
   } catch (error) {
-    return sendApiError(res, error.message,{logid: req.logEntry.logId});
+    return sendApiError(res, error.message,req.logEntry.logId);
   }
 };
 
@@ -160,7 +159,7 @@ export const remainderEmail = async (req, res) => {
     });
 
     if (!user) {
-      return sendApiError(res,req.logEntry.logId, "Invalid email or Token", 400);
+      return sendApiError(res, "Invalid email or Token", req.logEntry.logId,400);
     }
     user.rememberToken = v4()
     user.verificationTokenCreated = new Date()
@@ -202,12 +201,28 @@ export const handleSetPassword = async (req, res) => {
         },
       });
       if (!user) {
-        return sendApiError(res, "Invalid email or user not verified. Please check your email for the verification link.",{ LogId:req.logEntry.logId}, 400);
+        return sendApiError(res, "Invalid email or user not verified. Please check your email for the verification link.",req.logEntry.logId, 400);
       }
 
-      if(password.length<8){
-        return sendApiError(res, "Password should be 8 character or greater",req.logEntry.logId, 400);
+      if (!password || password.length < 8) {
+        return sendApiError(res, "Password should be 8 characters or greater", req.logEntry.logId, 400);
       }
+      
+      // Additional password strength criteria
+      const hasUpperCase = /[A-Z]/.test(password);
+      const hasLowerCase = /[a-z]/.test(password);
+      const hasDigits = /\d/.test(password);
+      const hasSpecialChars = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+      
+      if (!(hasUpperCase && hasLowerCase && hasDigits && hasSpecialChars)) {
+        return sendApiError(
+          res,
+          "Password should include at least one uppercase letter, one lowercase letter, one digit, and one special character.",
+          req.logEntry.logId,
+          400
+        );
+      }
+      
 
       if (password !== confirmPassword) {
         return sendApiError(res, "Password does not match",req.logEntry.logId, 400);
@@ -229,14 +244,14 @@ export const handleSetPassword = async (req, res) => {
       );
 
       // Send a success response
-      return sendApiResponse(res, { LogId:req.logEntry.logId },"Password set successfully. Your account is now verified. You can log in.");
+      return sendApiResponse(res, req.logEntry.logId ,"Password set successfully. Your account is now verified. You can log in.");
     } else {
-      return sendApiError(res,"Email not found",{ LogId:req.logEntry.logId }, 400);
+      return sendApiError(res,"Email not found",req.logEntry.logId, 400);
     }
 
   } catch (error) {
     // Send an error response
-    return sendApiError(res, error.message,{logid: req.logEntry.logId});
+    return sendApiError(res, error.message, req.logEntry.logId);
   }
 };
 
@@ -252,7 +267,7 @@ export const forgetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return sendApiError(res, "Email not found. Please enter email.",{logid: req.logEntry.logId}, 400,);
+      return sendApiError(res, "Email not found. Please enter email.", req.logEntry.logId, 400);
     }
     setPasswordMail.add({
       to: email,
@@ -290,7 +305,7 @@ export const changePassword = async (req, res) => {
         },
       });
       if (!user) {
-        return sendApiError(res, "Invalid email or user not verified. Please check your email for the verification link.",{ LogId:req.logEntry.logId}, 400);
+        return sendApiError(res, "Invalid email or user not verified. Please check your email for the verification link.",req.logEntry.logId, 400);
       }
 
       // Compare the provided password with the hashed password in the database
@@ -329,7 +344,8 @@ export const changePassword = async (req, res) => {
 
 export const getUser = async (req, res) => {
   try {
-      const { pageNumber = 1, perPage = 10, firstName, lastName, email, isAdmin, isVerified } = req.body;
+      const { pageNumber , perPage, firstName, lastName, email, isAdmin, isVerified } = req.query;
+      console.log(req.query)
 
       // Calculate the skip value based on the page number
       const skip = (pageNumber - 1) * perPage;
@@ -377,7 +393,7 @@ export const getUser = async (req, res) => {
 
   } catch (error) {
       console.error("Error fetching paginated users:", error);
-      return sendApiError(res,error.message,{logid: req.logEntry.logId});
+      return sendApiError(res,error.message,req.logEntry.logId);
   }
 };
 

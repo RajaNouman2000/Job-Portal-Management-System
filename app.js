@@ -43,7 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const limiter = rateLimit({
   windowMs: 60 * 1000, // one minute
-  max: 10, // max 10 requests
+  max: 30, // max 10 requests
   message: "Too many request(s) from this IP, Please try again later",
 });
 
@@ -55,7 +55,7 @@ app.use("/api/log/",activityRouter);
 app.use("/api/applicant",jobRouter);
 
 
-cron.schedule("*/30 * * * *", async () => {
+cron.schedule("*/30 * * * * *", async () => {
   console.log("Running cron job...");
   try {
     const rejectedJobApplicant = await softdelete();
@@ -66,7 +66,7 @@ cron.schedule("*/30 * * * *", async () => {
 });
 
 const SECRETKEY = process.env.SECRETKEY;
-// Middleware function for Socket.IO
+
 // Middleware function for Socket.IO
 io.use(async (socket, next) => {
   try {
@@ -116,10 +116,7 @@ io.on('connection', async (socket) => {
         await ChatData.create({ userName: user.firstName + user.lastName, question: msg, response: gptResponse });
 
         // Emit the GPT response back to the specific client
-        socket.emit('chat message', {
-          message: gptResponse,
-          user: "bot"
-        });
+        socket.emit('chat message', gptResponse );
       } catch (error) {
         console.error('Error saving message to the database:', error);
         // Handle the error (e.g., emit an error message to the client)

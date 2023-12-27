@@ -8,7 +8,7 @@ import {sendApiError,sendApiResponse} from "../helper_function/response-api.js"
 export const getActivityLogs = async (req, res) => {
   
   try {
-      const { pageNumber = 1, perPage = 10, firstName, lastName, email, isAdmin, isVerified } = req.body;
+      const { pageNumber = 1, perPage = 50, firstName, lastName, email, isAdmin, isVerified } = req.query;
 
 
       console.log(req.params)
@@ -26,7 +26,7 @@ export const getActivityLogs = async (req, res) => {
   
       // Fetch records from the database using the calculated skip and limit values and applied filters
       const users = await LogModel.findAll({
-        attributes: ["id","userName", "email", "reqBody", "resBody", "createdAt", "statusCode"],
+        attributes: ["id","userName", "email", "reqBody","endpoint", "createdAt", "statusCode"],
         where: {
             method: 'post', 
           },

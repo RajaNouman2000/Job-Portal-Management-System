@@ -1,22 +1,34 @@
-import { v4 } from 'uuid';
+import { v4 } from "uuid";
 import fs from "fs";
-import Joi from 'joi';
+import Joi from "joi";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import job, { Job, validateJob } from "../model/applicant.js";
-import pkg from 'sequelize';
-const { DataTypes, Sequelize ,Op} = pkg;
-import { rejected  } from "../mail_verification/mail-job.js";
-import {sendApiError,sendApiResponse} from "../helper_function/response-api.js" 
-import { query } from 'express';
+import pkg from "sequelize";
+const { DataTypes, Sequelize, Op } = pkg;
+import { rejected } from "../mail_verification/mail-job.js";
+import {
+  sendApiError,
+  sendApiResponse,
+} from "../helper_function/response-api.js";
+import { query } from "express";
 
 export const createJob = async (req, res) => {
   try {
-    const { userName, email, age, cnic, qualification, address, phoneNumber, status } = req.body;
+    const {
+      userName,
+      email,
+      age,
+      cnic,
+      qualification,
+      address,
+      phoneNumber,
+      status,
+    } = req.body;
 
-    const file = req.files['cv'];
+    const file = req.files["cv"];
     if (!file || file.length === 0) {
       // 'cv' file is not present, handle this case (e.g., send an error response)
-      sendApiError(res, "CV file is missing",req.logEntry.logId, 400);
+      sendApiError(res, "CV file is missing", req.logEntry.logId, 400);
       return;
     }
 
@@ -35,14 +47,19 @@ export const createJob = async (req, res) => {
       status,
     });
     if (error) {
-      sendApiError(res, error.details[0].message,req.logEntry.logId, 400);
+      sendApiError(res, error.details[0].message, req.logEntry.logId, 400);
       return;
     }
 
     // Check if a job application with the given email already exists
     const existingJob = await Job.findOne({ where: { email } });
     if (existingJob) {
-      sendApiError(res, "A job application with this email already exists", req.logEntry.logId,409);
+      sendApiError(
+        res,
+        "A job application with this email already exists",
+        req.logEntry.logId,
+        409
+      );
       return;
     }
     const result = await Job.create({
@@ -56,19 +73,17 @@ export const createJob = async (req, res) => {
       cv: pdfPath,
       status,
     });
-      
-    
+
     try {
       fs.writeFileSync(pdfPath, file[0].buffer);
     } catch (error) {
-      sendApiError(res, error.message,req.logEntry.logId);
+      sendApiError(res, error.message, req.logEntry.logId);
       return;
     }
 
-
     sendApiResponse(res, req.logEntry.logId, "Job Created Successfully", 201);
   } catch (error) {
-    return sendApiError(res, error.message,req.logEntry.logId);
+    return sendApiError(res, error.message, req.logEntry.logId);
   }
 };
 
@@ -77,7 +92,7 @@ export const updateJobStatus = async (req, res) => {
     // Define the validation schema
     const schema = Joi.object({
       email: Joi.string().email().required(),
-      status: Joi.string().valid('pending', 'accepted', 'rejected').required(),
+      status: Joi.string().valid("pending", "accepted", "rejected").required(),
     });
 
     // Validate the request body against the schema
@@ -85,19 +100,24 @@ export const updateJobStatus = async (req, res) => {
 
     if (error) {
       // Validation failed, send an error response
-      sendApiError(res, error.details[0].message,  req.logEntry.logId,400);
+      sendApiError(res, error.details[0].message, req.logEntry.logId, 400);
       return;
     }
 
     const { email, status } = req.body;
-    console.log(email,status)
+    console.log(email, status);
     // Check if the email exists in the database
     const existingJob = await Job.findOne({
       where: { email: email },
     });
 
     if (!existingJob) {
-      sendApiError(res, "Job not found for the provided email", req.logEntry.logId, 404);
+      sendApiError(
+        res,
+        "Job not found for the provided email",
+        req.logEntry.logId,
+        404
+      );
       return;
     }
 
@@ -107,7 +127,7 @@ export const updateJobStatus = async (req, res) => {
       { where: { email: email } }
     );
     // Your email template
-const emailHtml = `
+    const emailHtml = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -159,20 +179,16 @@ const emailHtml = `
       <h2>Job Application Status</h2>
     </div>
     <div class="message">
-      <p>Your job application has been <strong>accepted</strong>!</p>
+      <p>Your job application has been <strong>Rejected</strong>!</p>
       <p>Dear Nouman,
-      Thank you for your interest in Cogent Labs and for applying for the Python/Django Developer role.
+      Thank you for your interest in Developer studio and for applying for the Python/Django Developer role.
       We appreciate the time and effort you invested in the application and interview process. 
       However, after careful evaluation, we have decided not to proceed with your application at 
       this time based on your performance during the interview process.
       We wish you the best in your future endeavors!
-      
-      
       Regards,
-      
       HR Team
-      
-      Cogent Labs</p>
+      Developer Studio</p>
     </div>
     
   </div>
@@ -180,13 +196,14 @@ const emailHtml = `
 </html>
 
 `;
-
-rejected.add({
-      to: email,
-      subject: "Email Verification",
-      html: emailHtml,
-      type: "emailVerification",
-    });
+    if (status == "rejected") {
+      rejected.add({
+        to: email,
+        subject: "Email Verification",
+        html: emailHtml,
+        type: "emailVerification",
+      });
+    }
 
     sendApiResponse(res, req.logEntry.logId, "Job updated successfully");
   } catch (error) {
@@ -199,8 +216,8 @@ export const softdelete = async () => {
     // Find job applications with status 'rejected'
     const rejectedJobs = await Job.findAll({
       where: {
-        status: 'rejected'
-      }
+        status: "rejected",
+      },
     });
 
     // Remove CV files and destroy job applications
@@ -216,8 +233,8 @@ export const softdelete = async () => {
     // Soft delete the job applications
     const result = await Job.destroy({
       where: {
-        status: 'rejected'
-      }
+        status: "rejected",
+      },
     });
 
     return "Soft Delete Done successfully";
@@ -228,9 +245,9 @@ export const softdelete = async () => {
 
 export const getJob = async (req, res) => {
   try {
-    const { pageNumber = 1, perPage = 10, status, userName, email } = req.query;
+    const { pageNumber = 1, perPage = 20, status, userName, email } = req.query;
 
-    console.log(req.query)
+    console.log(req.query);
     // Calculate the skip value based on the page number
     const skip = (pageNumber - 1) * perPage;
 
@@ -254,7 +271,15 @@ export const getJob = async (req, res) => {
     // Fetch records from the database using the calculated skip and limit values and applied filters
     const jobs = await Job.findAll({
       where: filter,
-      attributes: ["id","userName","qualification","phoneNumber", "email", "age", "status"], // Add other attributes as needed
+      attributes: [
+        "id",
+        "userName",
+        "qualification",
+        "phoneNumber",
+        "email",
+        "age",
+        "status",
+      ], // Add other attributes as needed
       offset: skip,
       limit: perPage,
     });
@@ -267,19 +292,29 @@ export const getJob = async (req, res) => {
     const prevPage = pageNumber > 1 ? parseInt(pageNumber) - 1 : null;
 
     // Send the paginated list of jobs along with pagination details as a response
-    sendApiResponse(res, {logid: req.logEntry.logId, totalPages, perPage, pageNumber, nextPage, prevPage, jobs } , "Jobs fetched successfully", 200);
-
-
+    sendApiResponse(
+      res,
+      {
+        logid: req.logEntry.logId,
+        totalPages,
+        perPage,
+        pageNumber,
+        nextPage,
+        prevPage,
+        jobs,
+      },
+      "Jobs fetched successfully",
+      200
+    );
   } catch (error) {
-    return sendApiError(res, error.message,  req.logEntry.logId);
-
+    return sendApiError(res, error.message, req.logEntry.logId);
   }
 };
 
 export const downloadCv = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log(email)
+    console.log(email);
 
     // Fetch records from the database using the provided email
     const user = await Job.findOne({
@@ -290,7 +325,12 @@ export const downloadCv = async (req, res) => {
 
     // Check if a user with the provided email exists
     if (!user) {
-      sendApiError(res, "User not found with the provided email", req.logEntry.logId, 404);
+      sendApiError(
+        res,
+        "User not found with the provided email",
+        req.logEntry.logId,
+        404
+      );
       return;
     }
 
@@ -299,14 +339,17 @@ export const downloadCv = async (req, res) => {
 
     // Set the response headers for file download
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=${user.email}_CV.pdf`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${user.email}_CV.pdf`
+    );
 
     // Send the CV file as a response
     res.sendFile(pdfPath);
   } catch (error) {
     console.error("Error downloading CV:", error);
-    return sendApiError(res, error.message,  req.logEntry.logId);
+    return sendApiError(res, error.message, req.logEntry.logId);
   }
 };
 
-export default {createJob,updateJobStatus,softdelete,getJob,downloadCv}
+export default { createJob, updateJobStatus, softdelete, getJob, downloadCv };
