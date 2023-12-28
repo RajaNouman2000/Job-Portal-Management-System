@@ -26,7 +26,7 @@ export const getActivityLogs = async (req, res) => {
   
       // Fetch records from the database using the calculated skip and limit values and applied filters
       const users = await LogModel.findAll({
-        attributes: ["id","userName", "email", "reqBody","endpoint", "createdAt", "statusCode"],
+        attributes: ["id","userName", "email", "message","createdAt", "statusCode"],
         where: {
             method: 'post', 
           },

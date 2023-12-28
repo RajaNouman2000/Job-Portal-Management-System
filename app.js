@@ -16,8 +16,17 @@ import  {ChatData} from  "./model/chat.js"
 import {createAdminUser} from  "./seeder/seed.js"
 import user, { User } from "./model/user.js";
 import jwt from "jsonwebtoken";
+import { sequelize } from "./model/config.js";
 
-
+// Sync the model with the database
+sequelize
+  .sync()
+  .then(() => {
+    console.log("Database and tables are in sync");
+  })
+  .catch((error) => {
+    console.error("Error syncing database:", error);
+  });
 
 
 // Load environment variables from .env file
@@ -112,8 +121,10 @@ io.on('connection', async (socket) => {
         // Send user's message to OpenAI GPT-3.5 Turbo
         const gptResponse = await makeRequest({ body: { question: msg } });
 
+        console.log(user.id)
+        console.log(user)
         // Save GPT response to the database
-        await ChatData.create({ userName: user.firstName + user.lastName, question: msg, response: gptResponse });
+        await ChatData.create({  user_id: user.id, question: msg, response: gptResponse });
 
         // Emit the GPT response back to the specific client
         socket.emit('chat message', gptResponse );
@@ -132,6 +143,8 @@ io.on('connection', async (socket) => {
     console.error('Error in socket connection:', error);
   }
 });
+
+
 
 server.listen(PORT, HOST, () => {
   console.log(`Connected to the DataBase. Server is running at http://${HOST}:${PORT}`);

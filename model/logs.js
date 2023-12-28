@@ -10,6 +10,7 @@ export const LogModel = sequelize.define('log', {
     method: DataTypes.STRING,
     reqBody: DataTypes.JSON,
     endpoint: DataTypes.STRING,
+    message: DataTypes.STRING,
     statusCode: DataTypes.INTEGER
   });
 

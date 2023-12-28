@@ -344,7 +344,7 @@ export const changePassword = async (req, res) => {
 
 export const getUser = async (req, res) => {
   try {
-      const { pageNumber , perPage, firstName, lastName, email, isAdmin, isVerified } = req.query;
+      const { pageNumber=1 , perPage=10, firstName, lastName, email, isAdmin, isVerified } = req.query;
       console.log(req.query)
 
       // Calculate the skip value based on the page number

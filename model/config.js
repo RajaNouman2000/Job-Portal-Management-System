@@ -13,15 +13,4 @@ export const sequelize = new Sequelize(DATABASENAME, USER,PASSWORD, {
   logging:false
 });
 
-// Sync the model with the database
-sequelize
-  .sync()
-  .then(() => {
-    console.log("Database and tables are in sync");
-  })
-  .catch((error) => {
-    console.error("Error syncing database:", error);
-  });
-
-
 export default {sequelize};
